@@ -2,7 +2,7 @@
 
 ## Overview
 
-This module implements matrix multiplication with progressive optimization.
+This module implements matrix multiplication on GPU with progressively optimized kernels, focusing on how computation is organized across thread, warp, and block levels.
 
 ---
 
@@ -10,17 +10,34 @@ This module implements matrix multiplication with progressive optimization.
 
 ### 1. Naive Version
 
-- Direct computation
+- Each thread computes one output element
 - No data reuse
-- Memory-bound
+- Memory-bound due to excessive global memory access
 
 ---
 
-### 2. Tiled Version
+### 2. Tiled (Shared Memory) Version
 
-- Uses shared memory
-- Improves data reuse
-- Reduces global memory access
+- Uses shared memory to cache tiles of A and B
+- Reduces global memory traffic
+- Introduces data reuse within a block
+
+---
+
+### 3. Register Blocking Version
+
+- Each thread computes multiple output elements (e.g., 2×2)
+- Uses registers to store intermediate results
+- Increases compute intensity
+- Reduces redundant memory access
+
+---
+
+### 4. Warp-level Version
+
+- Organizes computation at the warp level
+- Each warp is responsible for a sub-tile
+- Introduces hierarchical decomposition: block → warp → thread
 
 ---
 
@@ -28,26 +45,43 @@ This module implements matrix multiplication with progressive optimization.
 
 ### Data Reuse
 
-- Each element loaded once used multiple times
+- Shared memory enables reuse across threads
+- Registers enable reuse within a thread
 
 ---
 
 ### Tiling
 
-- Divide computation into blocks
-- Load tiles into shared memory
+- Divides computation into tiles to improve locality
+- Reduces pressure on global memory bandwidth
+
+---
+
+### Register Blocking
+
+- Each thread computes multiple outputs
+- Improves arithmetic intensity
+
+---
+
+### Warp-level Execution
+
+- Warp is the basic execution unit on GPU
+- Threads in a warp execute in lockstep
+- Enables coordinated computation without explicit synchronization
 
 ---
 
 ### Memory Hierarchy
 
-- Global memory → slow
-- Shared memory → faster
+- Global memory → large but slow
+- Shared memory → faster, block-level
+- Registers → fastest, thread-level
 
 ---
 
-## Insights
+## Summary
 
-- Naive version is bandwidth limited
-- Tiling significantly improves performance
-- Memory access pattern is critical
+- Performance improvements mainly come from increasing data reuse
+- Optimization progresses from thread-level to warp-level coordination
+- Register blocking and tiling are key techniques for efficient matrix multiplication
