@@ -3,29 +3,15 @@
 
 #define N 1000
 
-__global__ void vectorAddShared(float *d_A, float *d_B, float *d_C, int n)
+__global__ void vectorAddGridStride(float *d_A, float *d_B, float *d_C, int n)
 {
-    // shared memory（block 内）
-    __shared__ float s_A[256];
-    __shared__ float s_B[256];
-
     int tid = threadIdx.x;
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int idx = blockIdx.x * blockDim.x + tid;
 
-    // Step 1：global → shared
-    if (idx < n)
+    // 🔥 核心：grid-stride loop
+    for (int i = idx; i < n; i += blockDim.x * gridDim.x)
     {
-        s_A[tid] = d_A[idx];
-        s_B[tid] = d_B[idx];
-    }
-
-    // Step 2：同步（关键🔥）
-    __syncthreads();
-
-    // Step 3：计算（用 shared memory）
-    if (idx < n)
-    {
-        d_C[idx] = s_A[tid] + s_B[tid];
+        d_C[i] = d_A[i] + d_B[i];
     }
 }
 
@@ -55,9 +41,9 @@ int main()
     cudaMemcpy(d_B, h_B, size, cudaMemcpyHostToDevice);
 
     int threadsPerBlock = 256;
-    int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
+    int blocksPerGrid = 4;  // 🔥 可以随便设，不再依赖 N
 
-    vectorAddShared<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, N);
+    vectorAddGridStride<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, N);
 
     cudaMemcpy(h_C, d_C, size, cudaMemcpyDeviceToHost);
 
